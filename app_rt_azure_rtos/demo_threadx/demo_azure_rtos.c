@@ -107,16 +107,10 @@ void thread_blink_led(ULONG thread_blink) {
 	ULONG   actual_flags;
 
 	while (true) {
-		// waits here until flag set in inter core thread
-		status = tx_event_flags_get(&event_flags_0, 0x1, TX_OR_CLEAR,
-			&actual_flags, TX_WAIT_FOREVER);
-
-		if ((status != TX_SUCCESS) || (actual_flags != 0x1))
-			break;
-
 		gpio_output(LED2, 0);
 		tx_thread_sleep(50);
 		gpio_output(LED2, 1);
+		tx_thread_sleep(50);
 	}
 }
 
