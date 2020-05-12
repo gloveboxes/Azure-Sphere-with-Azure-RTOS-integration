@@ -16,11 +16,9 @@ You will learn how to deploy a [Azure RTOS](https://azure.microsoft.com/services
 
 You can run Bare Metal applications or applications built on Real-Time frameworks such as Azure RTOS on the Azure Sphere Real-Time cores.
 
-The main reason you would run an application on a Real-Time core is when you need precise or highly deterministic timing. For example, you have a sensor driver that requires precise timing.
+The reasons you would run applications on a Real-Time core include the need for precise or deterministic timing by sensors, migrating existing Cortex M4 code to the Azure Sphere, or to utilise all cores on the Azure Sphere to improve application performance.
 
-For security, applications running on Real-Time cores do not have direct internet access. They communicate with the internet via a High-Level application.
-
- In this lab, you will also learn about **Inter-Core** messaging.
+In this lab, you will also learn about **Inter-Core** messaging.
 
 ---
 
