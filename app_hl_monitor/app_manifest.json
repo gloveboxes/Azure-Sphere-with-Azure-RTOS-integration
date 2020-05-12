@@ -1,0 +1,12 @@
+﻿{
+  "SchemaVersion": 1,
+  "Name": "AzureSphereIoTCentral",
+  "ComponentId": "25025d2c-66da-4448-bae1-ac26fcdd3627",
+  "EntryPoint": "/bin/app",
+  "CmdArgs": [ "ignore", "6583cf17-d321-4d72-8283-0b7c5b56442b" ],
+  "Capabilities": {
+    "Gpio": [ "$LED_RED", "$LED_GREEN", "$LED_BLUE", "$BUTTON_A" ],
+    "AllowedApplicationConnections": [ "6583cf17-d321-4d72-8283-0b7c5b56442b" ]
+  },
+  "ApplicationType": "Default"
+}
