@@ -30,12 +30,12 @@ typedef enum {
 	OUTPUT
 } Direction;
 
-struct _peripheral {
+struct _peripheralGpio {
 	int fd;
 	int pin;
 	GPIO_Value initialState;
 	bool invertPin;
-	bool (*initialise)(struct _peripheral* peripheral);
+	bool (*initialise)(struct _peripheralGpio* peripheral);
 	char* name;
 	Direction direction;
 	bool opened;
@@ -49,17 +49,17 @@ typedef struct {
 } Timer;
 
 
-typedef struct _peripheral Peripheral;
-Peripheral** _peripheralSet = NULL;
-size_t _peripheralSetCount = 0;
+typedef struct _peripheralGpio PeripheralGpio;
+PeripheralGpio** _peripheralGpioSet = NULL;
+size_t _peripheralGpioSetCount = 0;
 
 // GPIO support functions
-bool OpenPeripheral(Peripheral* peripheral);
-void OpenPeripheralSet(Peripheral** peripheralSet, size_t peripheralSetCount);
-void ClosePeripheralSet(void);
-void ClosePeripheral(Peripheral* peripheral);
-void Gpio_On(Peripheral* peripheral);
-void Gpio_Off(Peripheral* peripheral);
+bool OpenPeripheralGpio(PeripheralGpio* peripheral);
+void OpenPeripheralGpioSet(PeripheralGpio** peripheralSet, size_t peripheralSetCount);
+void ClosePeripheralGpioSet(void);
+void ClosePeripheralGpio(PeripheralGpio* peripheral);
+void Gpio_On(PeripheralGpio* peripheral);
+void Gpio_Off(PeripheralGpio* peripheral);
 
 // Timer support functions
 void StartTimerSet(Timer* timerSet[], size_t timerCount);
@@ -111,24 +111,24 @@ bool realTelemetry = false;		// Generate fake telemetry or use Seeed Studio Grov
 
 // Forward signatures
 static void ButtonPressCheckHandler(EventLoopTimer* eventLoopTimer);
-static void LedOn(Peripheral* led);
+static void LedOn(PeripheralGpio* led);
 static void LedOffHandler(EventLoopTimer* eventLoopTimer);
-static bool IsButtonPressed(Peripheral button, GPIO_Value_Type* oldState);
+static bool IsButtonPressed(PeripheralGpio button, GPIO_Value_Type* oldState);
 
 static const struct timespec ledStatusPeriod = { 2, 500 * 1000 * 1000 };
 
 // GPIO Output Peripherals
-static Peripheral ledRed = { .pin = LED_RED, .direction = OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = OpenPeripheral, .name = "ledRed" };
-static Peripheral ledGreen = { .pin = LED_GREEN, .direction = OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = OpenPeripheral, .name = "ledGreen" };
-static Peripheral ledBlue = { .pin = LED_BLUE, .direction = OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = OpenPeripheral, .name = "ledBlue" };
-static Peripheral buttonA = { .pin = BUTTON_A, .direction = INPUT, .initialise = OpenPeripheral, .name = "buttonA" };
+static PeripheralGpio ledRed = { .pin = LED_RED, .direction = OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = OpenPeripheralGpio, .name = "ledRed" };
+static PeripheralGpio ledGreen = { .pin = LED_GREEN, .direction = OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = OpenPeripheralGpio, .name = "ledGreen" };
+static PeripheralGpio ledBlue = { .pin = LED_BLUE, .direction = OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = OpenPeripheralGpio, .name = "ledBlue" };
+static PeripheralGpio buttonA = { .pin = BUTTON_A, .direction = INPUT, .initialise = OpenPeripheralGpio, .name = "buttonA" };
 
 // Timers
 static Timer ledOffOneShotTimer = { .period = { 0, 0 }, .name = "ledOffOneShotTimer", .handler = LedOffHandler };
 static Timer buttonPressCheckTimer = { .period = { 0, 1000000 }, .name = "buttonPressCheckTimer", .handler = ButtonPressCheckHandler };
 
 // Initialize Sets
-Peripheral* peripheralSet[] = { &ledRed, &ledGreen, &ledBlue, &buttonA };
+PeripheralGpio* peripheralSet[] = { &ledRed, &ledGreen, &ledBlue, &buttonA };
 Timer* timerSet[] = { &ledOffOneShotTimer, &buttonPressCheckTimer };
 
 
@@ -183,7 +183,7 @@ static void ButtonPressCheckHandler(EventLoopTimer* eventLoopTimer) {
 /// <summary>
 /// Turn on LED and set a one shot timer to turn LED2 off
 /// </summary>
-static void LedOn(Peripheral* led) {
+static void LedOn(PeripheralGpio* led) {
 	Gpio_On(led);
 	SetOneShotTimer(&ledOffOneShotTimer, &ledStatusPeriod);
 }
@@ -205,9 +205,9 @@ static void LedOffHandler(EventLoopTimer* eventLoopTimer) {
 
 
 /// <summary>
-/// Read Button Peripheral returns pressed state
+/// Read Button PeripheralGpio returns pressed state
 /// </summary>
-static bool IsButtonPressed(Peripheral button, GPIO_Value_Type* oldState) {
+static bool IsButtonPressed(PeripheralGpio button, GPIO_Value_Type* oldState) {
 	bool isButtonPressed = false;
 	GPIO_Value_Type newState;
 
@@ -227,7 +227,7 @@ static bool IsButtonPressed(Peripheral button, GPIO_Value_Type* oldState) {
 ///  Initialize peripherals, device twins, direct methods, timers.
 /// </summary>
 static void InitPeripheralsAndHandlers(void) {
-	OpenPeripheralSet(peripheralSet, NELEMS(peripheralSet));
+	OpenPeripheralGpioSet(peripheralSet, NELEMS(peripheralSet));
 	StartTimerSet(timerSet, NELEMS(timerSet));
 	EnableInterCoreCommunications(rtAppComponentId, InterCoreMessageHandler);
 }
@@ -237,7 +237,7 @@ static void InitPeripheralsAndHandlers(void) {
 /// </summary>
 static void ClosePeripheralsAndHandlers(void) {
 	StopTimerSet();
-	ClosePeripheralSet();
+	ClosePeripheralGpioSet();
 	StopTimerEventLoop();
 }
 
@@ -266,7 +266,7 @@ int main(int argc, char* argv[]) {
 
 // GPIO support functions
 
-bool OpenPeripheral(Peripheral* peripheral) {
+bool OpenPeripheralGpio(PeripheralGpio* peripheral) {
 	if (peripheral == NULL || peripheral->pin < 0) { return false; }
 
 	if (peripheral->opened) { return true; }
@@ -309,14 +309,14 @@ bool OpenPeripheral(Peripheral* peripheral) {
 	return true;
 }
 
-void OpenPeripheralSet(Peripheral** peripheralSet, size_t peripheralSetCount) {
-	_peripheralSet = peripheralSet;
-	_peripheralSetCount = peripheralSetCount;
+void OpenPeripheralGpioSet(PeripheralGpio** peripheralSet, size_t peripheralSetCount) {
+	_peripheralGpioSet = peripheralSet;
+	_peripheralGpioSetCount = peripheralSetCount;
 
-	for (int i = 0; i < _peripheralSetCount; i++) {
-		_peripheralSet[i]->fd = -1;
-		if (_peripheralSet[i]->initialise != NULL) {
-			if (!_peripheralSet[i]->initialise(_peripheralSet[i])) {
+	for (int i = 0; i < _peripheralGpioSetCount; i++) {
+		_peripheralGpioSet[i]->fd = -1;
+		if (_peripheralGpioSet[i]->initialise != NULL) {
+			if (!_peripheralGpioSet[i]->initialise(_peripheralGpioSet[i])) {
 				Terminate(ExitCode_Open_Peripheral);
 				break;
 			}
@@ -329,7 +329,7 @@ void OpenPeripheralSet(Peripheral** peripheralSet, size_t peripheralSetCount) {
 /// </summary>
 /// <param name="fd">File descriptor to close</param>
 /// <param name="fdName">File descriptor name to use in error message</param>
-void ClosePeripheral(Peripheral* peripheral) {
+void ClosePeripheralGpio(PeripheralGpio* peripheral) {
 	if (peripheral->opened && peripheral->fd >= 0) {
 		int result = close(peripheral->fd);
 		if (result != 0) {
@@ -340,19 +340,19 @@ void ClosePeripheral(Peripheral* peripheral) {
 	peripheral->opened = false;
 }
 
-void ClosePeripheralSet(void) {
-	for (int i = 0; i < _peripheralSetCount; i++) {
-		ClosePeripheral(_peripheralSet[i]);
+void ClosePeripheralGpioSet(void) {
+	for (int i = 0; i < _peripheralGpioSetCount; i++) {
+		ClosePeripheralGpio(_peripheralGpioSet[i]);
 	}
 }
 
-void Gpio_On(Peripheral* peripheral) {
+void Gpio_On(PeripheralGpio* peripheral) {
 	if (peripheral == NULL || peripheral->fd < 0 || peripheral->pin < 0 || !peripheral->opened) { return; }
 
 	GPIO_SetValue(peripheral->fd, peripheral->invertPin ? GPIO_Value_Low : GPIO_Value_High);
 }
 
-void Gpio_Off(Peripheral* peripheral) {
+void Gpio_Off(PeripheralGpio* peripheral) {
 	if (peripheral == NULL || peripheral->fd < 0 || peripheral->pin < 0 || !peripheral->opened) { return; }
 
 	GPIO_SetValue(peripheral->fd, peripheral->invertPin ? GPIO_Value_High : GPIO_Value_Low);
