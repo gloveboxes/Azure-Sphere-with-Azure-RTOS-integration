@@ -1,4 +1,4 @@
-#include "../../Hardware/avnet_mt3620_sk/inc/hw/azure_sphere_learning_path.h"
+#include "hw/azure_sphere_learning_path.h"
 #include "i2c.h"
 #include "lsm6dso_driver.h"
 #include "lsm6dso_reg.h"
