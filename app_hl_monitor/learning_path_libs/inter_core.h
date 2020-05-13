@@ -16,5 +16,5 @@
 #include "timer.h"
 
 
-bool SendInterCoreMessage(const char* msg);
-int EnableInterCoreCommunications(const char* rtAppComponentId, void (*interCoreCallback)(char*));
+bool lp_sendInterCoreMessage(const char* msg);
+int lp_enableInterCoreCommunications(const char* rtAppComponentId, void (*interCoreCallback)(char*));

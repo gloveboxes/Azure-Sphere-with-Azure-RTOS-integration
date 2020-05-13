@@ -1,18 +1,18 @@
 #include "timer.h"
 
-Timer** _timers = NULL;
+LP_Timer** _timers = NULL;
 size_t _timerCount = 0;
 EventLoop* eventLoop = NULL;
 
 
-EventLoop* GetTimerEventLoop(void) {
+EventLoop* lp_getTimerEventLoop(void) {
 	if (eventLoop == NULL) {
 		eventLoop = EventLoop_Create();
 	}
 	return eventLoop;
 }
 
-bool ChangeTimer(Timer* timer, const struct timespec* period) {
+bool lp_changeTimer(LP_Timer* timer, const struct timespec* period) {
 	if (timer->eventLoopTimer == NULL) { return false; }
 	timer->period.tv_nsec = period->tv_nsec;
 	timer->period.tv_sec = period->tv_sec;
@@ -21,8 +21,8 @@ bool ChangeTimer(Timer* timer, const struct timespec* period) {
 	return result == 0 ? true : false;
 }
 
-bool StartTimer(Timer* timer) {
-	EventLoop* eventLoop = GetTimerEventLoop();
+bool lp_startTimer(LP_Timer* timer) {
+	EventLoop* eventLoop = lp_getTimerEventLoop();
 	if (eventLoop == NULL) {
 		return false;
 	}
@@ -31,7 +31,7 @@ bool StartTimer(Timer* timer) {
 		return true;
 	}
 
-	if (timer->period.tv_nsec == 0 && timer->period.tv_sec == 0) {  // Set up a disabled Timer for oneshot or change timer
+	if (timer->period.tv_nsec == 0 && timer->period.tv_sec == 0) {  // Set up a disabled LP_Timer for oneshot or change timer
 		timer->eventLoopTimer = CreateEventLoopDisarmedTimer(eventLoop, timer->handler);
 		if (timer->eventLoopTimer == NULL) {
 			return false;
@@ -48,39 +48,39 @@ bool StartTimer(Timer* timer) {
 	return true;
 }
 
-void StopTimer(Timer* timer) {
+void lp_stopTimer(LP_Timer* timer) {
 	if (timer->eventLoopTimer != NULL) {
 		DisposeEventLoopTimer(timer->eventLoopTimer);
 		timer->eventLoopTimer = NULL;
 	}
 }
 
-void StartTimerSet(Timer* timerSet[], size_t timerCount) {
+void lp_startTimerSet(LP_Timer* timerSet[], size_t timerCount) {
 	_timers = timerSet;
 	_timerCount = timerCount;
 
 	for (int i = 0; i < _timerCount; i++) {
-		if (!StartTimer(_timers[i])) {
+		if (!lp_startTimer(_timers[i])) {
 			break;
 		};
 	}
 }
 
-void StopTimerSet(void) {
+void lp_stopTimerSet(void) {
 	for (int i = 0; i < _timerCount; i++) {
-		StopTimer(_timers[i]);
+		lp_stopTimer(_timers[i]);
 	}
 }
 
-void StopTimerEventLoop(void) {
-	EventLoop* eventLoop = GetTimerEventLoop();
+void lp_stopTimerEventLoop(void) {
+	EventLoop* eventLoop = lp_getTimerEventLoop();
 	if (eventLoop != NULL) {
 		EventLoop_Close(eventLoop);
 	}
 }
 
-bool SetOneShotTimer(Timer* timer, const struct timespec* period) {
-	EventLoop* eventLoop = GetTimerEventLoop();
+bool lp_setOneShotTimer(LP_Timer* timer, const struct timespec* period) {
+	EventLoop* eventLoop = lp_getTimerEventLoop();
 	if (eventLoop == NULL) {
 		return false;
 	}

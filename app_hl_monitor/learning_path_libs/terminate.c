@@ -3,28 +3,28 @@
 volatile sig_atomic_t terminationRequired = false;
 volatile sig_atomic_t _exitCode = 0;
 
-void RegisterTerminationHandler(void) {
+void lp_registerTerminationHandler(void) {
 	struct sigaction action;
 	memset(&action, 0, sizeof(struct sigaction));
-	action.sa_handler = TerminationHandler;
+	action.sa_handler = lp_terminationHandler;
 	sigaction(SIGTERM, &action, NULL);
 }
 
-void TerminationHandler(int signalNumber) {
+void lp_terminationHandler(int signalNumber) {
 	// Don't use Log_Debug here, as it is not guaranteed to be async-signal-safe.
 	terminationRequired = true;
 	_exitCode = ExitCode_TermHandler_SigTerm;
 }
 
-void Terminate(int exitCode) {
+void lp_terminate(int exitCode) {
 	_exitCode = exitCode;
 	terminationRequired = true;
 }
 
-bool IsTerminationRequired(void) {
+bool lp_isTerminationRequired(void) {
 	return terminationRequired;
 }
 
-int GetTerminationExitCode(void) {
+int lp_getTerminationExitCode(void) {
 	return _exitCode;
 }

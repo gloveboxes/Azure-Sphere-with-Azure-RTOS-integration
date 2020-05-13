@@ -7,7 +7,7 @@ PROJECT(azsphere_libs C)
 set(Source
     "globals.c"
     "azure_iot.c"
-    "peripheral.c"
+    "peripheral_gpio.c"
     "device_twins.c"
     "direct_methods.c"
     "timer.c"
