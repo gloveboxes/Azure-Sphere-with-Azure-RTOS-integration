@@ -58,36 +58,40 @@ How to select your developer board
 #include "learning_path_libs/SEEED_STUDIO/board.h"
 #endif // SEEED_STUDIO
 
+
 // Forward signatures
 static void ButtonPressCheckHandler(EventLoopTimer* eventLoopTimer);
-static void LedOn(LP_PeripheralGpio* led);
+static void LedOn(LP_PERIPHERAL_GPIO* led);
 static void LedOffHandler(EventLoopTimer* eventLoopTimer);
-static bool IsButtonPressed(LP_PeripheralGpio button, GPIO_Value_Type* oldState);
+static bool IsButtonPressed(LP_PERIPHERAL_GPIO button, GPIO_Value_Type* oldState);
+static void InterCoreMsgHandler(EventLoopTimer* eventLoopTimer);
 
 static const struct timespec ledStatusPeriod = { 2, 500 * 1000 * 1000 };
+LP_INTER_CORE_BLOCK ic_control_block;
 
 // GPIO Output Peripherals
-static LP_PeripheralGpio ledRed = { .pin = LED_RED, .direction = LP_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = lp_openPeripheralGpio, .name = "ledRed" };
-static LP_PeripheralGpio ledGreen = { .pin = LED_GREEN, .direction = LP_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = lp_openPeripheralGpio, .name = "ledGreen" };
-static LP_PeripheralGpio ledBlue = { .pin = LED_BLUE, .direction = LP_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = lp_openPeripheralGpio, .name = "ledBlue" };
-static LP_PeripheralGpio buttonA = { .pin = BUTTON_A, .direction = LP_INPUT, .initialise = lp_openPeripheralGpio, .name = "buttonA" };
+static LP_PERIPHERAL_GPIO ledRed = { .pin = LED_RED, .direction = LP_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = lp_openPeripheralGpio, .name = "ledRed" };
+static LP_PERIPHERAL_GPIO ledGreen = { .pin = LED_GREEN, .direction = LP_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = lp_openPeripheralGpio, .name = "ledGreen" };
+static LP_PERIPHERAL_GPIO ledBlue = { .pin = LED_BLUE, .direction = LP_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true, .initialise = lp_openPeripheralGpio, .name = "ledBlue" };
+static LP_PERIPHERAL_GPIO buttonA = { .pin = BUTTON_A, .direction = LP_INPUT, .initialise = lp_openPeripheralGpio, .name = "buttonA" };
 
 // Timers
-static LP_Timer ledOffOneShotTimer = { .period = { 0, 0 }, .name = "ledOffOneShotTimer", .handler = LedOffHandler };
-static LP_Timer buttonPressCheckTimer = { .period = { 0, 1000000 }, .name = "buttonPressCheckTimer", .handler = ButtonPressCheckHandler };
+static LP_TIMER ledOffOneShotTimer = { .period = { 0, 0 }, .name = "ledOffOneShotTimer", .handler = LedOffHandler };
+static LP_TIMER buttonPressCheckTimer = { .period = { 0, 1000000 }, .name = "buttonPressCheckTimer", .handler = ButtonPressCheckHandler };
+static LP_TIMER InterCoreMsgTimer = { .period = { 1, 000000000 }, .name = "InterCoreMsgTimer", .handler = InterCoreMsgHandler };
 
 // Initialize Sets
-LP_PeripheralGpio* peripheralGpioSet[] = { &ledRed, &ledGreen, &ledBlue, &buttonA };
-LP_Timer* timerSet[] = { &ledOffOneShotTimer, &buttonPressCheckTimer };
+LP_PERIPHERAL_GPIO* peripheralGpioSet[] = { &ledRed, &ledGreen, &ledBlue, &buttonA };
+LP_TIMER* timerSet[] = { &ledOffOneShotTimer, &buttonPressCheckTimer, &InterCoreMsgTimer };
 
 
 /// <summary>
 /// Callback handler for Inter-Core Messaging 
 /// </summary>
-static void InterCoreMessageHandler(char* msg) {
+static void InterCoreMessageHandler(LP_INTER_CORE_BLOCK* control_block) {
 	static float previousTemperature = 0.0;
 
-	float temperature = strtof(msg, NULL);
+	float temperature = control_block->value_float;
 
 	if (temperature == previousTemperature) {
 		LedOn(&ledGreen);
@@ -103,7 +107,7 @@ static void InterCoreMessageHandler(char* msg) {
 
 	previousTemperature = temperature;
 
-	Log_Debug(msg);
+	Log_Debug("Temperature: %f\n", temperature);
 }
 
 
@@ -124,15 +128,39 @@ static void ButtonPressCheckHandler(EventLoopTimer* eventLoopTimer) {
 		lp_gpioOff(&ledGreen);
 		lp_gpioOff(&ledBlue);
 
-		lp_sendInterCoreMessage("GetTemperature");
+		ic_control_block.cmd = LP_IC_GET_TEMPERATURE;
+
+		lp_sendInterCoreMessage(&ic_control_block);
 	}
 }
+
+/// <summary>
+/// Handler to check for Inter Core Msg Presses
+/// </summary>
+static void InterCoreMsgHandler(EventLoopTimer* eventLoopTimer)
+{
+	static GPIO_Value_Type buttonAState;
+
+	if (ConsumeEventLoopTimerEvent(eventLoopTimer) != 0)
+	{
+		lp_terminate(ExitCode_ButtonPressCheckHandler);
+		return;
+	}
+
+	lp_gpioOff(&ledRed);
+	lp_gpioOff(&ledGreen);
+	lp_gpioOff(&ledBlue);
+
+	ic_control_block.cmd = LP_IC_GET_TEMPERATURE;
+	lp_sendInterCoreMessage(&ic_control_block);
+}
+
 
 
 /// <summary>
 /// Turn on LED and set a one shot timer to turn LED2 off
 /// </summary>
-static void LedOn(LP_PeripheralGpio* led) {
+static void LedOn(LP_PERIPHERAL_GPIO* led) {
 	lp_gpioOn(led);
 	lp_setOneShotTimer(&ledOffOneShotTimer, &ledStatusPeriod);
 }
@@ -156,7 +184,7 @@ static void LedOffHandler(EventLoopTimer* eventLoopTimer) {
 /// <summary>
 /// Read Button Peripheral returns pressed state
 /// </summary>
-static bool IsButtonPressed(LP_PeripheralGpio button, GPIO_Value_Type* oldState) {
+static bool IsButtonPressed(LP_PERIPHERAL_GPIO button, GPIO_Value_Type* oldState) {
 	bool isButtonPressed = false;
 	GPIO_Value_Type newState;
 

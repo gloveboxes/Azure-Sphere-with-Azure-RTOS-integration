@@ -24,6 +24,23 @@ static uint32_t sharedBufSize = 0;
 static const size_t payloadStart = 20;
 bool highLevelReady = false;
 
+enum IC_ID
+{
+	UNKNOWN,
+	GET_TEMPERATURE
+};
+
+struct IC_CONTROL_BLOCK {
+	enum IC_ID id;
+	union
+	{
+		bool	value_bool;
+		float	value_float;
+		int		value_int;
+	};
+} ic_control_block;
+
+
 
 // Define the ThreadX object control blocks...
 TX_THREAD               tx_thread_inter_core;
@@ -57,12 +74,12 @@ void tx_application_define(void* first_unused_memory) {
 
 	tx_byte_allocate(&byte_pool_0, (VOID**)&pointer, DEMO_STACK_SIZE, TX_NO_WAIT);			// Allocate the stack for inter core thread
 	tx_thread_create(&tx_thread_inter_core, "thread inter core", thread_inter_core, 0,		// Create inter core message thread
-		pointer, DEMO_STACK_SIZE, 1, 1, TX_NO_TIME_SLICE, TX_AUTO_START);
+		pointer, DEMO_STACK_SIZE, 4, 4, TX_NO_TIME_SLICE, TX_AUTO_START);
 	
 
 	tx_byte_allocate(&byte_pool_0, (VOID**)&pointer, DEMO_STACK_SIZE, TX_NO_WAIT);			// Allocate the stack for thread_blink_led thread
 	tx_thread_create(&tx_thread_blink_led, "thread blink led", thread_blink_led, 0,			// Create button press thread */
-		pointer, DEMO_STACK_SIZE, 4, 4, TX_NO_TIME_SLICE, TX_AUTO_START);
+		pointer, DEMO_STACK_SIZE, 1, 1, TX_NO_TIME_SLICE, TX_AUTO_START);
 	
 	
 	tx_byte_allocate(&byte_pool_0, (VOID**)&pointer, DEMO_STACK_SIZE, TX_NO_WAIT);			// Allocate the stack for read sensor thread
@@ -90,11 +107,15 @@ void thread_inter_core(ULONG thread_input) {
 		if (r == 0 && dataSize > payloadStart) {
 			highLevelReady = true;
 
-			// Set event flag 0 to wakeup threads read sensor and blink led
-			status = tx_event_flags_set(&event_flags_0, 0x1, TX_OR);
+			memcpy(&ic_control_block, &buf[payloadStart],  sizeof(ic_control_block));
+			if (ic_control_block.id == GET_TEMPERATURE)
+			{
+				// Set event flag 0 to wakeup threads read sensor and blink led
+				status = tx_event_flags_set(&event_flags_0, 0x1, TX_OR);
 
-			if (status != TX_SUCCESS)
-				break;
+				if (status != TX_SUCCESS)
+					break;
+			}
 		}
 
 		tx_thread_sleep(25);
@@ -140,11 +161,12 @@ void thread_read_sensor(ULONG thread_input) {
 
 		if (highLevelReady) {
 
+			ic_control_block.id = GET_TEMPERATURE;
 			lsm6dso_show_result();
-			temperature = get_temperature();
+			ic_control_block.value_float = get_temperature();
 
-			snprintf((char*)buf + payloadStart, sizeof(buf) - payloadStart, "%.2f", temperature);
-			dataSize = payloadStart + strlen((char*)buf + payloadStart); // payloadStart + telemetry length;
+			memcpy((void*)&buf[payloadStart], (void*)&ic_control_block, sizeof(ic_control_block));
+			dataSize = payloadStart + sizeof(ic_control_block);
 
 			EnqueueData(inbound, outbound, sharedBufSize, buf, dataSize);
 		}

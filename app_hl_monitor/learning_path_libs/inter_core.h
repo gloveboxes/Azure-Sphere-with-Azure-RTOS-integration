@@ -15,6 +15,23 @@
 #include <unistd.h>
 #include "timer.h"
 
+enum LP_INTER_CORE_CMD
+{
+	LP_IC_UNKNOWN,
+	LP_IC_GET_TEMPERATURE
+};
 
-bool lp_sendInterCoreMessage(const char* msg);
-int lp_enableInterCoreCommunications(const char* rtAppComponentId, void (*interCoreCallback)(char*));
+typedef struct LP_INTER_CORE_BLOCK
+{
+	enum LP_INTER_CORE_CMD cmd;
+	union
+	{
+		bool	value_bool;
+		float	value_float;
+		int		value_int;
+	};
+} LP_INTER_CORE_BLOCK;
+
+
+bool lp_sendInterCoreMessage(LP_INTER_CORE_BLOCK* control_block);
+int lp_enableInterCoreCommunications(const char* rtAppComponentId, void (*interCoreCallback)(LP_INTER_CORE_BLOCK*));
